@@ -1,6 +1,19 @@
-const Web3 = require('/usr/local/lib/node_modules/web3');
-const Tx  = require('/usr/local/lib/node_modules/ethereumjs-tx');
-const abi = [
+var Web3 = require('/usr/local/lib/node_modules/web3');
+var Tx  = require('/usr/local/lib/node_modules/ethereumjs-tx');
+
+var web3 = new Web3(new Web3.providers.HttpProvider("https://ropsten.infura.io/f363558df5f1484990ee8ea9150e5a7aS"));
+
+var _Admin = "0x09cA9ABC63B40B076f4a41AF4B2260cF2A3b6Ae2";//管理者
+var privateKey1 = Buffer.from("47FA979D19EEE42110F65E2F7964BDADA07F91D1D2B9F795AE7DCCB895970107","hex");
+
+var _from = "0x2F7AC829f6785305a78b1C2AbcEaD2aBE7Cc6802";
+var privateKey2 = Buffer.from("11B25EE1788CF22DB8508836178DD32F72066B3BFE4DA2F6ED84E2C96BDDEA1E","hex");
+
+var _to = "0x15209Ca11eB6FA758c845083F2b716e1d5395d2C";
+
+
+var ContractAddress = "0x30ee9391cea761fe842525392bdf851d9cae211b";//DefaultTokenのaddress
+var abi = [
   {
     "constant": true,
     "inputs": [],
@@ -291,85 +304,72 @@ const abi = [
     "type": "function"
   }
 ];
-const web3 = new Web3(new Web3.providers.HttpProvider("https://ropsten.infura.io/f363558df5f1484990ee8ea9150e5a7aS"));
+
+var contract = new web3.eth.Contract(abi, ContractAddress,{
+  from: _Admin,
+  gasLimit: 4600000
+});
 
 module.exports = {
-    sendCoin: async function(amount) {
-        let amountNum = Number(amount);
-        if(isNaN(amountNum)) return { err: true, message: 'Amount must be number' };
-        const _Admin = "0x09cA9ABC63B40B076f4a41AF4B2260cF2A3b6Ae2";//管理者
-        const privateKey1 = Buffer.from("47FA979D19EEE42110F65E2F7964BDADA07F91D1D2B9F795AE7DCCB895970107","hex");
+    sendCoin: function(amount) {
+　var estimateGas;
+　var nonce;
 
-        const _from = "0x2F7AC829f6785305a78b1C2AbcEaD2aBE7Cc6802";
-        const privateKey2 = Buffer.from("11B25EE1788CF22DB8508836178DD32F72066B3BFE4DA2F6ED84E2C96BDDEA1E","hex");
 
-        const _to = "0x15209Ca11eB6FA758c845083F2b716e1d5395d2C";
+ var approveFunction = contract.methods.approve(_from,amount);
+ var approveAbi = approveFunction.encodeABI();
 
-        const ContractAddress = "0x30ee9391cea761fe842525392bdf851d9cae211b";//DefaultTokenのaddress
-        const contract = new web3.eth.Contract(abi, ContractAddress, {
-          from: _Admin,
-          gasLimit: 4600000
-        });
+　web3.eth.getTransactionCount(_Admin).then(function(_nonce){
+  nonce = _nonce.toString(16);
+  console.log("Nonce:" + nonce);
 
-        let estimateGas;
-        let nonce;
+　var txParams_app = {
+　nonce: "0x" + nonce,
+　gasPrice: web3.utils.toHex(web3.utils.toWei("0.00000009", "ether")),
+　gasLimit: web3.utils.toHex(4600001),
+　from: _Admin,
+　to: ContractAddress,
+　data: approveAbi,
+　};
 
-        let approveFunction = contract.methods.approve(_from,amount);
-        let approveAbi = approveFunction.encodeABI();
+　var tx_app = new Tx(txParams_app);
+　tx_app.sign(privateKey1);
+　var serializedTx_app = tx_app.serialize();
+　web3.eth.sendSignedTransaction("0x" + serializedTx_app.toString("hex"))
+　.on('receipt', receipt2 => {
+  console.log("approve status: "+receipt2.status);
 
-        let _nonce = await web3.eth.getTransactionCount(_Admin);
-        nonce = _nonce.toString(16);
-        console.log('Nonce:' + nonce);
+  var transferFromFunction = contract.methods.transferFrom(_Admin, _to, amount);
+  var transferFromAbi = transferFromFunction.encodeABI();
 
-        let txParams_app = {
-            nonce: '0x' + nonce,
-            gasPrice: web3.utils.toHex(web3.utils.toWei("0.00000009", "ether")),
-            gasLimit: web3.utils.toHex(4600001),
-            from: _Admin,
-            to: ContractAddress,
-            data: approveAbi,
-        };
+  web3.eth.getTransactionCount(_from).then(function(_nonce){
+    nonce = _nonce.toString(16);
+    console.log("Nonce:" + nonce);
 
-        let tx_app = new Tx(txParams_app);
-        tx_app.sign(privateKey1);
-        let serializedTx_app = tx_app.serialize();
-        web3.eth.sendSignedTransaction('0x' + serializedTx_app.toString('hex'))
-            .on('receipt', receipt2 => {
-                console.log('approve status: ' + receipt2.status);
-                
-                let transferFromFunction = contract.methods.transferFrom(_Admin, _to, amount);
-                let transferFromAbi = transferFromFunction.encodeABI();
 
-                _nonce = web3.eth.getTransactionCount(_from);
-                nonce = _nonce.toString(16);
+    var txParams_tra = {
+    　nonce: "0x" + nonce,
+    　gasPrice: web3.utils.toHex(web3.utils.toWei("0.00000005", "ether")),
+    　gasLimit: web3.utils.toHex(4600001),
+    　from: _from,
+    　to: ContractAddress,
+    　data: transferFromAbi,
+    　};
 
-                console.log('Nonce:'+nonce);
 
-                let txParams_tra = {
-                    nonce: '0x' + nonce,
-                    gasPrice: web3.utils.toHex(web3.utils.toWei('0.000000005', 'ether')),
-                    gasLimit: web3.utils.toHex(4600001),
-                    from: _from,
-                    to: ContractAddress,
-                    data: transferFromAbi,
-                };
+    var tx_tra = new Tx(txParams_tra);
+    　tx_tra.sign(privateKey2);
+    　var serializedTx_tra = tx_tra.serialize();
+      var trrr = serializedTx_tra.toString("hex");
+    　web3.eth.sendSignedTransaction("0x" + trrr)
+    　.on('receipt', receipt2 => {
+      console.log("transfer status: "+receipt2.status);
+      contract.methods.balanceOf(_to).call().then(function(v){console.log(v)}).catch((err) => {console.log(err)});
 
-                let tx_tra = new Tx(txParams_tra);
-                tx_tra.sign(privateKey2);
-                let serializedTx_tra = tx_tra.serialize();
-                let trrr = serializedTx_tra.toString('hex');
-                web3.eth.sendSignedTransaction('0x' + trrr)
-                    .on('receipt', receipt2 => {
-                        console.log('transfer status: ' + receipt2.status);
-                        contract.methods.balanceOf(_to).call()
-                            .then( v => { console.log(v) })
-                            .catch( err => { console.log(err) });
-                    });
-            });
-    },
+
+  });
+});
+});
+});
 }
-
-
-
-
-
+};
